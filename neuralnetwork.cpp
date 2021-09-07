@@ -236,7 +236,7 @@ public:
 					following_back_prop(rin[k] , data[k]);
 				}
 			}
-			std::cout << "epoch %i over"<< i << std::endl;
+			std::cout << "epoch over"<< std::endl;
 		}
 	}
 };
