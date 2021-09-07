@@ -1,5 +1,5 @@
 #include <iostream>
-#include <include/eigen3/Eigen/Dense>
+#include <eigen3/Eigen/Dense>
 #include <vector>
 #include <fstream>
 #include <cstdlib>
