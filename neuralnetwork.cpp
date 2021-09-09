@@ -1,60 +1,55 @@
 #include <iostream>
-#include <eigen3/Eigen/Dense>
+#include <include/eigen3/Eigen/Dense>
 #include <vector>
 #include <fstream>
 #include <cstdlib>
-
+#include <ctime>
+#include <algorithm>
 
 using namespace Eigen;
 
+int myrandom (int i) { return std::rand()%i;}
 
-std::vector<std::vector<ArrayXf>> data_loader (std::string fileName)
+ArrayXf itac (float y)
 {
-	std::vector<std::vector<ArrayXf>> output;
+	ArrayXf x (10);
+    for (float i = 0 ; i < y ; i++)
+    {
+        x(i) = 0;
+    }
+    x (y) =  1;
+    for (float i = 9 ; i > y ; i--)
+    {
+        x (i) = 0;
+    }
+    return x;
+}
+
+std::vector<ArrayXf> data_loader (std::string fileName)
+{
     std::ifstream file;
     file.open(fileName);
     std::string line;
     std::string word;
-    std::vector <ArrayXf> answers;
     std::vector <ArrayXf> data;
     while(getline(file , line))
     {
-        ArrayXf input (784);
+        ArrayXf D (785);
         std::stringstream ss (line);
-        bool first_one = true;
         int counter = 0;
         while (getline(ss , word ,','))
         {
-            if (first_one)
-            {
-                ArrayXf x (10);
-                float answer = std::stof(word);
-                for (float i = 0 ; i < answer ; i++)
-                {
-                    x(i) = 0;
-                }
-                x (answer) =  1;
-                for (float i = 9 ; i > answer ; i--)
-                {
-                    x (i) = 0;
-                }
-                answers.push_back(x);
-                first_one = false;
-            }
-            else
-            {
-                float y = std::stof(word) / 255;
-                input(counter) = y;
-                counter ++;
-            }
+            
+            float y = std::stof(word);
+            D(counter) = y;
+            counter ++;
         }
-        data.push_back(input);
+		D.tail(784) /= 255;
+        data.push_back(D);
     }
     file.close();
 	std::cout << "finished reading the file" << std::endl;
-	output.push_back(data);
-	output.push_back(answers);
-	return output;
+	return data;
 }
 
 
@@ -141,7 +136,7 @@ private:
 	{
 		results.erase(results.begin(),results.end());
 		al_feedforward(inputs);
-		ArrayXf delta = der_sigmoid(results[results.size() - 1]) * -2.0 * (rin - results[results.size() - 1]);
+		ArrayXf delta = der_sigmoid(results[results.size() - 1]) * -1.0 * (rin - results[results.size() - 1]);
 		delta_b.push_back(delta);
 		delta_w.push_back(colwise_expander(results[results.size()-2] , delta.size()) * rowwise_expander(delta , results[results.size()-2].size()));
 		for (int layer = results.size()-2 ; layer > 0 ; layer--)
@@ -159,7 +154,7 @@ private:
 		results.erase(results.begin(),results.end());
 		int lin = delta_b.size()-1;
 		al_feedforward(inputs);
-		ArrayXf delta = der_sigmoid(results[results.size() - 1]) * -2 * (rin - results[results.size() - 1]);
+		ArrayXf delta = der_sigmoid(results[results.size() - 1]) * -1.0 * (rin - results[results.size() - 1]);
 		delta_b[0] = delta_b[0] + delta ;
 		delta_w[0] = delta_w[0] + (colwise_expander(results[results.size()-2] , delta.size()) * rowwise_expander(delta , results[results.size()-2].size()));
 		for (int layer = results.size()-2 ; layer > 0 ; layer--)
@@ -175,16 +170,10 @@ private:
 	void descenting (int batchSize)
 	{
 		float learning_rate = 3.0;
-		for (int i = 0 ; i < delta_w.size() ; i++)
-		{
-			delta_w[i] = learning_rate * delta_w[i] / batchSize;
-			delta_b[i] = learning_rate * delta_b[i] / batchSize;
-		}
-
 		for (int i = 0 ; i < l_weights.size() ; i++)
 		{
-			l_weights[i] = l_weights[i] -  delta_w[l_weights.size()-1-i];
-			l_biases[i] = l_biases[i] - delta_b[l_biases.size()-1-i];
+			l_weights[i] = l_weights[i] -  (delta_w[l_weights.size()-1-i] * learning_rate / batchSize);
+			l_biases[i] = l_biases[i] - (delta_b[l_biases.size()-1-i] * learning_rate /batchSize);
 		}
 		delta_w.erase(delta_w.begin(),delta_w.end());
 		delta_b.erase(delta_b.begin(),delta_b.end());
@@ -216,27 +205,26 @@ public:
 	void train()
 	{
 		int batch_size = 10;
-		int n_epoch = 4;
+		int n_epoch = 3;
+		std::vector<ArrayXf> file = data_loader("mnist_train.csv");
 		for (int i = 1 ; i <= n_epoch ; i++)
 		{
-			system("shuf mnist_train.csv -o mnist_train.csv");
-			std::vector<std::vector<ArrayXf>> file = data_loader("mnist_train.csv");
-			std::vector<ArrayXf> data = file[0];
-			std::vector<ArrayXf> rin = file[1];
-			first_back_prop(rin[0] , data[0]);
-			for (int k = 1 ; k < data.size(); k++)
+			std::srand ( unsigned ( std::time(0) ) );
+			std::random_shuffle(file.begin() , file.end() , myrandom);
+			first_back_prop(itac(file[0](0)) , file[0].tail(784));
+			for (int k = 1 ; k < file.size(); k++)
 			{
 				if (k % batch_size == 0)
 				{
 					descenting(batch_size);
-					first_back_prop(rin[k] , data[k]);
+					first_back_prop(itac(file[k](0)) , file[k].tail(784));
 				}
 				else
 				{
-					following_back_prop(rin[k] , data[k]);
+					following_back_prop(itac(file[k](0)) , file[k].tail(784));
 				}
 			}
-			std::cout << "epoch over"<< std::endl;
+			std::cout << "epoch over" << std::endl;
 		}
 	}
 };
@@ -247,17 +235,15 @@ int main ()
 	arch << 30 , 30 , 10 ;
 	network network1 = network(arch , 784);
 	network1.train();
-	std::vector<std::vector<ArrayXf>> file = data_loader("mnist_test.csv");
-	std::vector<ArrayXf> testData = file[0];
-	std::vector<ArrayXf> testLabel = file[1];
+	std::vector<ArrayXf> file = data_loader("mnist_test.csv");
 	int mistakeCounter = 0;
-	for (int i = 0 ; i < testData.size() ;i++)
+	for (int i = 0 ; i < file.size() ;i++)
 	{
-		if (conclusion(network1.al_feedforward(testData[i])) != conclusion(testLabel[i]))
+		if (conclusion(network1.al_feedforward(file[i].tail(784))) != file[i](0) )
 		{
-			mnist_viewer(testData[i]);
+			mnist_viewer(file[i].tail(784));
 			std::cout << "\n";
-			std::cout << "machine says:" << conclusion(network1.al_feedforward(testData[i])) << "Correct is :" << conclusion(testLabel[i]);
+			std::cout << "machine says:" << conclusion(network1.al_feedforward(file[i].tail(784))) << " Correct is :" << file[i](0);
 			std::cout << "\n";
 			mistakeCounter ++;
 		}
