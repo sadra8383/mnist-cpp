@@ -1,5 +1,5 @@
 #include <iostream>
-#include <include/eigen3/Eigen/Dense>
+#include <eigen3/Eigen/Dense>
 #include <vector>
 #include <fstream>
 #include <cstdlib>
@@ -136,7 +136,7 @@ private:
 	{
 		results.erase(results.begin(),results.end());
 		al_feedforward(inputs);
-		ArrayXf delta = der_sigmoid(results[results.size() - 1]) * -1.0 * (rin - results[results.size() - 1]);
+		ArrayXf delta = der_sigmoid(results[results.size() - 1]) * (results[results.size() - 1] - rin);
 		delta_b.push_back(delta);
 		delta_w.push_back(colwise_expander(results[results.size()-2] , delta.size()) * rowwise_expander(delta , results[results.size()-2].size()));
 		for (int layer = results.size()-2 ; layer > 0 ; layer--)
@@ -154,7 +154,7 @@ private:
 		results.erase(results.begin(),results.end());
 		int lin = delta_b.size()-1;
 		al_feedforward(inputs);
-		ArrayXf delta = der_sigmoid(results[results.size() - 1]) * -1.0 * (rin - results[results.size() - 1]);
+		ArrayXf delta = der_sigmoid(results[results.size() - 1]) * (results[results.size() - 1] - rin);
 		delta_b[0] = delta_b[0] + delta ;
 		delta_w[0] = delta_w[0] + (colwise_expander(results[results.size()-2] , delta.size()) * rowwise_expander(delta , results[results.size()-2].size()));
 		for (int layer = results.size()-2 ; layer > 0 ; layer--)
