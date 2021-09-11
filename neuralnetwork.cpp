@@ -1,5 +1,5 @@
 #include <iostream>
-#include <eigen3/Eigen/Dense>
+#include <include/eigen3/Eigen/Dense>
 #include <vector>
 #include <fstream>
 #include <cstdlib>
@@ -117,66 +117,45 @@ float conclusion (ArrayXf arr)
 	return maxIndex;
 }
 
-
 class network
 {
 private:
-	ArrayXf feedforward (ArrayXf inputs , int i)
-	{
-		ArrayXXf multiplie = l_weights[i] * colwise_expander(inputs , l_weights[i].cols());
-		return sigmoid(multiplie.colwise().sum().transpose() + l_biases[i]);
-	}
 	std::vector <ArrayXXf> delta_w;
 	std::vector <ArrayXf> delta_b;
 	std::vector<ArrayXXf> l_weights;
 	std::vector<ArrayXf> l_biases;
 	std::vector<ArrayXf> results;
-	ArrayXf input_saver;
-	void first_back_prop (ArrayXf rin , ArrayXf inputs)
+	ArrayXf feedforward (ArrayXf inputs , int i)
 	{
-		results.erase(results.begin(),results.end());
-		al_feedforward(inputs);
-		ArrayXf delta = der_sigmoid(results[results.size() - 1]) * (results[results.size() - 1] - rin);
-		delta_b.push_back(delta);
-		delta_w.push_back(colwise_expander(results[results.size()-2] , delta.size()) * rowwise_expander(delta , results[results.size()-2].size()));
-		for (int layer = results.size()-2 ; layer > 0 ; layer--)
-		{
-			delta = ((rowwise_expander(delta , results[layer].size()) * l_weights[layer+1]).rowwise().sum()) * der_sigmoid(results[layer]);
-			delta_b.push_back(delta);
-			delta_w.push_back(colwise_expander(results[layer-1] , delta.size()) * rowwise_expander(delta , results[layer-1].size()) );
-		}
-		delta = ((rowwise_expander(delta , results[0].size()) * l_weights[1]).rowwise().sum()) * der_sigmoid(results[0]) ;
-		delta_b.push_back(delta);
-		delta_w.push_back(colwise_expander(input_saver , delta.size()) * rowwise_expander(delta , input_saver.size()));
+		ArrayXXf multiplie = l_weights[i] * colwise_expander(inputs , l_weights[i].cols());
+		return sigmoid(multiplie.colwise().sum().transpose() + l_biases[i]);
 	}
-	void following_back_prop(ArrayXf rin , ArrayXf inputs)
+	void backProp(ArrayXf rin , ArrayXf inputs)
 	{
 		results.erase(results.begin(),results.end());
-		int lin = delta_b.size()-1;
 		al_feedforward(inputs);
-		ArrayXf delta = der_sigmoid(results[results.size() - 1]) * (results[results.size() - 1] - rin);
-		delta_b[0] = delta_b[0] + delta ;
-		delta_w[0] = delta_w[0] + (colwise_expander(results[results.size()-2] , delta.size()) * rowwise_expander(delta , results[results.size()-2].size()));
-		for (int layer = results.size()-2 ; layer > 0 ; layer--)
+		int rs = results.size() - 1;
+		ArrayXf delta = der_sigmoid(results.back()) * (results.back() - rin);
+		delta_b.back() += delta ;
+		delta_w.back() += (colwise_expander(results[rs-1] , delta.size()) * rowwise_expander(delta , results[rs-1].size()));
+		for (int layer = rs-1 ; layer > 0 ; layer--)
 		{
-			delta = ((rowwise_expander(delta , results[layer].size()) * l_weights[layer+1]).rowwise().sum()) * der_sigmoid(results[layer]);
-			delta_b[lin-layer] = delta_b[lin-layer] + delta;
-			delta_w[lin-layer] = delta_w[lin-layer] + (colwise_expander(results[layer-1] , delta.size()) * rowwise_expander(delta , results[layer-1].size()));
+			delta = ((rowwise_expander(delta , results[layer].size()) * l_weights[layer]).rowwise().sum()) * der_sigmoid(results[layer]);
+			delta_b[layer-1] += delta;
+			delta_w[layer-1] += (colwise_expander(results[layer-1] , delta.size()) * rowwise_expander(delta , results[layer-1].size()));
 		}
-		delta = ((rowwise_expander(delta , results[0].size()) * l_weights[1]).rowwise().sum()) * der_sigmoid(results[0]);
-		delta_b[lin] = delta_b[lin] + delta;
-		delta_w[lin] = delta_w[lin] + (colwise_expander(input_saver , delta.size()) * rowwise_expander(delta , input_saver.size()));
+		
 	}
 	void descenting (int batchSize)
 	{
 		float learning_rate = 3.0;
 		for (int i = 0 ; i < l_weights.size() ; i++)
 		{
-			l_weights[i] = l_weights[i] -  (delta_w[l_weights.size()-1-i] * learning_rate / batchSize);
-			l_biases[i] = l_biases[i] - (delta_b[l_biases.size()-1-i] * learning_rate /batchSize);
+			l_weights[i] = l_weights[i] -  (delta_w[i] * learning_rate / batchSize);
+			delta_w[i] = ArrayXXf::Zero(delta_w[i].rows() , delta_w[i].cols());
+			l_biases[i] = l_biases[i] - (delta_b[i] * learning_rate /batchSize);
+			delta_b[i] = ArrayXf::Zero(delta_b[i].size());
 		}
-		delta_w.erase(delta_w.begin(),delta_w.end());
-		delta_b.erase(delta_b.begin(),delta_b.end());
 	}
 public:
 	int n_i ;
@@ -189,12 +168,14 @@ public:
 			ArrayXf bias = ArrayXf::Zero(arch(i));
 			l_weights.push_back(weight);
 			l_biases.push_back(bias);
+			delta_w.push_back(weight * 0);
+			delta_b.push_back(bias);
 			n_inputs = arch(i);
 		}
 	}
 	ArrayXf al_feedforward (ArrayXf inputs)
 	{
-		input_saver = inputs;
+		results.push_back(inputs);
 		for (int i = 0 ; i < l_weights.size() ; i++)
 		{
 			inputs = feedforward(inputs , i);
@@ -211,17 +192,16 @@ public:
 		{
 			std::srand ( unsigned ( std::time(0) ) );
 			std::random_shuffle(file.begin() , file.end() , myrandom);
-			first_back_prop(itac(file[0](0)) , file[0].tail(784));
-			for (int k = 1 ; k < file.size(); k++)
+			for (int k = 0 ; k < file.size(); k++)
 			{
-				if (k % batch_size == 0)
+				if ((k+1) % batch_size == 0)
 				{
 					descenting(batch_size);
-					first_back_prop(itac(file[k](0)) , file[k].tail(784));
+					backProp(itac(file[k](0)) , file[k].tail(784));
 				}
 				else
 				{
-					following_back_prop(itac(file[k](0)) , file[k].tail(784));
+					backProp(itac(file[k](0)) , file[k].tail(784));
 				}
 			}
 			std::cout << "epoch over" << std::endl;
