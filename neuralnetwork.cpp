@@ -52,6 +52,26 @@ std::vector<ArrayXf> data_loader (std::string fileName)
 	return data;
 }
 
+ArrayXXf myDot (ArrayXf colx , ArrayXf rowx)
+{
+	ArrayXXf output (colx.size() , rowx.size());
+	for (int i = 0 ; i < rowx.size() ; i++)
+	{
+		output.col(i) = colx * rowx(i);
+	}
+	return output;
+}
+
+ArrayXf multiplieAndColSum (ArrayXXf x , ArrayXf y)
+{
+	ArrayXf output(x.cols()) ;
+	for (int i = 0 ; i < x.cols() ; i++)
+	{
+		output(i) = (x.col(i) * y).sum();
+	}
+	return output;
+}
+
 
 void mnist_viewer (ArrayXf image)
 {
@@ -127,8 +147,7 @@ private:
 	std::vector<ArrayXf> results;
 	ArrayXf feedforward (ArrayXf inputs , int i)
 	{
-		ArrayXXf multiplie = l_weights[i] * colwise_expander(inputs , l_weights[i].cols());
-		return sigmoid(multiplie.colwise().sum().transpose() + l_biases[i]);
+		return sigmoid(multiplieAndColSum(l_weights[i] , inputs) + l_biases[i]);
 	}
 	void backProp(ArrayXf rin , ArrayXf inputs)
 	{
@@ -137,24 +156,23 @@ private:
 		int rs = results.size() - 1;
 		ArrayXf delta = der_sigmoid(results.back()) * (results.back() - rin);
 		delta_b.back() += delta ;
-		delta_w.back() += (colwise_expander(results[rs-1] , delta.size()) * rowwise_expander(delta , results[rs-1].size()));
+		delta_w.back() += myDot(results[rs-1] , delta); 
 		for (int layer = rs-1 ; layer > 0 ; layer--)
 		{
-			delta = ((rowwise_expander(delta , results[layer].size()) * l_weights[layer]).rowwise().sum()) * der_sigmoid(results[layer]);
+			delta = (rowwise_expander(delta , results[layer].size()) * l_weights[layer]).rowwise().sum() * der_sigmoid(results[layer]);
 			delta_b[layer-1] += delta;
-			delta_w[layer-1] += (colwise_expander(results[layer-1] , delta.size()) * rowwise_expander(delta , results[layer-1].size()));
+			delta_w[layer-1] += myDot(results[layer-1] , delta);
 		}
-		
 	}
 	void descenting (int batchSize)
 	{
-		float learning_rate = 3.0;
+		float learning_rate = 3;
 		for (int i = 0 ; i < l_weights.size() ; i++)
 		{
 			l_weights[i] = l_weights[i] -  (delta_w[i] * learning_rate / batchSize);
-			delta_w[i] = ArrayXXf::Zero(delta_w[i].rows() , delta_w[i].cols());
+			delta_w[i] *= 0;
 			l_biases[i] = l_biases[i] - (delta_b[i] * learning_rate /batchSize);
-			delta_b[i] = ArrayXf::Zero(delta_b[i].size());
+			delta_b[i] *= 0;
 		}
 	}
 public:
@@ -186,7 +204,7 @@ public:
 	void train()
 	{
 		int batch_size = 10;
-		int n_epoch = 3;
+		int n_epoch = 5;
 		std::vector<ArrayXf> file = data_loader("mnist_train.csv");
 		for (int i = 1 ; i <= n_epoch ; i++)
 		{
@@ -211,8 +229,8 @@ public:
 
 int main ()
 {
-	ArrayXi arch (3);
-	arch << 30 , 30 , 10 ;
+	ArrayXi arch (2);
+	arch << 30 , 10 ;
 	network network1 = network(arch , 784);
 	network1.train();
 	std::vector<ArrayXf> file = data_loader("mnist_test.csv");
