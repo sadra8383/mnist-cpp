@@ -72,6 +72,17 @@ ArrayXf multiplieAndColSum (ArrayXXf x , ArrayXf y)
 	return output;
 }
 
+ArrayXf multiplieAndRowSum (ArrayXXf x , ArrayXf y)
+{
+	ArrayXf output(x.rows()) ;
+	x.transposeInPlace();
+	for (int i = 0 ; i < x.cols() ; i++)
+	{
+		output(i) = (x.col(i) * y).sum();
+	}
+	return output;
+}
+
 
 void mnist_viewer (ArrayXf image)
 {
@@ -98,26 +109,6 @@ void mnist_viewer (ArrayXf image)
 		}
 	}
 	
-}
-
-ArrayXXf colwise_expander (ArrayXf arr , int col)
-{
-	ArrayXXf outputArr (arr.size() , col);
-	for (int i = 0 ; i < col ; i++)
-	{
-		outputArr.col(i) = arr;
-	}
-	return outputArr;
-}
-
-ArrayXXf rowwise_expander (ArrayXf arr , int row)
-{
-	ArrayXXf outputArr (row , arr.size());
-	for (int i = 0 ; i < row ; i++)
-	{
-		outputArr.row(i) = arr;
-	}
-	return outputArr;
 }
 
 ArrayXf sigmoid (ArrayXf x)
@@ -159,7 +150,7 @@ private:
 		delta_w.back() += myDot(results[rs-1] , delta); 
 		for (int layer = rs-1 ; layer > 0 ; layer--)
 		{
-			delta = (rowwise_expander(delta , results[layer].size()) * l_weights[layer]).rowwise().sum() * der_sigmoid(results[layer]);
+			delta = multiplieAndRowSum(l_weights[layer] , delta) * der_sigmoid(results[layer]);
 			delta_b[layer-1] += delta;
 			delta_w[layer-1] += myDot(results[layer-1] , delta);
 		}
@@ -241,7 +232,8 @@ int main ()
 		{
 			mnist_viewer(file[i].tail(784));
 			std::cout << "\n";
-			std::cout << "machine says:" << conclusion(network1.al_feedforward(file[i].tail(784))) << " Correct is :" << file[i](0);
+			std::cout << "machine says:" << conclusion(network1.al_feedforward(file[i].tail(784)));
+			std::cout << " Correct is :" << file[i](0);
 			std::cout << "\n";
 			mistakeCounter ++;
 		}
