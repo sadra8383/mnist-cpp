@@ -2,13 +2,9 @@
 #include <include/eigen3/Eigen/Dense>
 #include <vector>
 #include <fstream>
-#include <cstdlib>
-#include <ctime>
-#include <algorithm>
 
 using namespace Eigen;
 
-int myrandom (int i) { return std::rand()%i;}
 
 ArrayXf itac (float y)
 {
@@ -195,12 +191,17 @@ public:
 	void train()
 	{
 		int batch_size = 10;
-		int n_epoch = 5;
+		int n_epoch = 3;
 		std::vector<ArrayXf> file = data_loader("mnist_train.csv");
 		for (int i = 1 ; i <= n_epoch ; i++)
 		{
-			std::srand ( unsigned ( std::time(0) ) );
-			std::random_shuffle(file.begin() , file.end() , myrandom);
+			int progress = 0;
+			for (int j = 1 ; j <= 10 ; j++)
+			{
+				std::cout << ".";
+			}
+			std::cout.flush();
+			std::random_shuffle(file.begin() , file.end());
 			for (int k = 0 ; k < file.size(); k++)
 			{
 				if ((k+1) % batch_size == 0)
@@ -211,6 +212,27 @@ public:
 				else
 				{
 					backProp(itac(file[k](0)) , file[k].tail(784));
+				}
+				if ((k+1) % (file.size()/10) == 0)
+				{
+					progress += 1;
+					for (int j = 1 ; j <= 10 ; j++)
+					{
+						std::cout << "\b";
+					}
+					for (int j = 1 ; j <= progress ; j++)
+					{
+						std::cout << "=";
+					}
+					if (progress != 10)
+					{
+						std::cout << ">";
+					}
+					for (int j = 9 ; j > progress ; j--)
+					{
+						std ::cout << ".";
+					}
+					std::cout.flush();
 				}
 			}
 			std::cout << "epoch over" << std::endl;
